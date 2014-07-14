@@ -1,0 +1,318 @@
+<!--
+Copyright (C) 2014 Google Inc. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<!DOCTYPE html>
+<html>
+<head>
+<title>Hello World</title>
+<style type="text/css">
+html, body, #wrapper {
+   height:100%;
+   width: 100%;
+   margin: 0;
+   padding: 0;
+   border: 0;
+}
+#wrapper td {
+   vertical-align: middle;
+   text-align: center;
+}
+input {
+  font-family: "Arial", Arial, sans-serif;
+  font-size: 40px;
+  font-weight: bold;
+}
+.border {
+    border: 2px solid #cccccc;
+    border-radius: 5px;
+}
+.border:focus {
+    outline: none;
+    border-color: #8ecaed;
+    box-shadow: 0 0 5px #8ecaed;
+}
+</style>
+<script type="text/javascript" src="//www.gstatic.com/cv/js/sender/v1/cast_sender.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+<script type="text/javascript">
+var applicationID = 'DC8B341F';
+var namespace = 'urn:x-cast:com.google.cast.sample.helloworld';
+var session = null;
+var hasStartControls = false
+var disabled = false
+var playerName
+
+/**
+ * Call initialization for Cast
+ */
+if (!chrome.cast || !chrome.cast.isAvailable) {
+  setTimeout(initializeCastApi, 1000);
+}
+
+/**
+ * initialization
+ */
+function initializeCastApi() {
+  var sessionRequest = new chrome.cast.SessionRequest(applicationID);
+  var apiConfig = new chrome.cast.ApiConfig(sessionRequest,
+    sessionListener,
+    receiverListener);
+
+  chrome.cast.initialize(apiConfig, onInitSuccess, onError);
+};
+
+/**
+ * initialization success callback
+ */
+function onInitSuccess() {
+  appendMessage("onInitSuccess");
+}
+
+/**
+ * initialization error callback
+ */
+function onError(message) {
+  appendMessage("onError: "+JSON.stringify(message));
+}
+
+/**
+ * generic success callback
+ */
+function onSuccess(message) {
+  appendMessage("onSuccess: "+message);
+}
+
+/**
+ * callback on success for stopping app
+ */
+function onStopAppSuccess() {
+  appendMessage('onStopAppSuccess');
+}
+
+/**
+ * session listener during initialization
+ */
+function sessionListener(e) {
+  appendMessage('New session ID:' + e.sessionId);
+  session = e;
+  session.addUpdateListener(sessionUpdateListener);
+  session.addMessageListener(namespace, receiverMessage);
+}
+
+/**
+ * listener for session updates
+ */
+function sessionUpdateListener(isAlive) {
+  var message = isAlive ? 'Session Updated' : 'Session Removed';
+  message += ': ' + session.sessionId;
+  appendMessage(message);
+  if (!isAlive) {
+    session = null;
+  }
+};
+
+/**
+ * utility function to log messages from the receiver
+ * @param {string} namespace The namespace of the message
+ * @param {string} message A message string
+ */
+function receiverMessage(namespace, message) {
+  appendMessage("receiverMessage: "+namespace+", "+message);
+  if (message) {
+    message = JSON.parse(message)
+    switch (message["type"]) {
+      case "set":
+        switch (message["body"]) {
+          case "start":
+            hasStartControls = true;
+            break;
+          case "player":
+            console.log("blah");
+            var name = $("#player").val()
+            $("#player_name").text(name);
+            $("#player_label").toggle();
+            if (hasStartControls) {
+              $("#rounds").toggle()
+            } else {
+              $("#text_input").toggle()
+            }
+            break;
+          case "rounds":
+            if (hasStartControls) {
+              $("#start").toggle()
+              $("#text_input").toggle()
+            } else {
+              $("#text_input").toggle()
+            }
+
+        }
+        break;
+      case "status":
+        switch (message["body"]) {
+          case "disabled":
+            disabled = true
+            $("#text_input").prop('disabled', true);
+            break;
+          case "enabled":
+            disabled = false
+            break;  
+        }
+
+    }
+  }
+};
+
+/**
+ * receiver listener during initialization
+ */
+function receiverListener(e) {
+  if( e === 'available' ) {
+    appendMessage("receiver found");
+  }
+  else {
+    appendMessage("receiver list empty");
+  }
+}
+
+/**
+ * stop app/session
+ */
+function stopApp() {
+  session.stop(onStopAppSuccess, onError);
+}
+
+/**
+ * send a message to the receiver using the custom namespace
+ * receiver CastMessageBus message handler will be invoked
+ * @param {string} message A message string
+ */
+function sendMessage(message) {
+  if (session!=null) {
+    session.sendMessage(namespace, message, onSuccess.bind(this, "Message sent: " + message), onError);
+  }
+  else {
+    chrome.cast.requestSession(function(e) {
+        session = e;
+        session.sendMessage(namespace, message, onSuccess.bind(this, "Message sent: " + message), onError);
+      }, onError);
+  }
+}
+
+/**
+ * append message to debug message window
+ * @param {string} message A message string
+ */
+function appendMessage(message) {
+  console.log(message);
+  var dw = document.getElementById("debugmessage");
+  dw.innerHTML += '\n' + JSON.stringify(message);
+};
+
+/**
+ * utility function to handle text typed in by user in the input field
+ */
+function update() {
+  var formElement = $("#form")
+  switch (formElement.children().attr('id')) {
+    case "player":
+      var player = $("#player")
+      var message = messageJson("player", player.val());
+      moveFormElement(formElement, player, $("#rounds"));
+      break;
+    case "rounds":
+      var rounds = $("#rounds_input")
+      var message = messageJson("rounds", rounds.val());
+      moveFormElement(formElement, $("#rounds"), $("#start"));
+      break;
+    case "start":
+      var start = $("#start")
+      var message = messageJson("start", 1);
+      moveFormElement(formElement, $("#start"), $("#text_input"));
+      break;  
+  }
+
+  sendMessage(message);
+}
+
+function moveFormElement (formElement, oldElement, newElement) {
+  formElement.before(oldElement);
+  oldElement.toggle()
+  formElement.append(newElement);
+}
+
+/**
+ * handler for the transcribed text from the speech input
+ * @param {string} words A transcibed speech string
+ */
+function transcribe(words) {
+  sendMessage(words);
+}
+
+function messageJson (contentType, contentBody) {
+  return JSON.stringify({type: contentType, body: contentBody})
+}
+
+function showPlayerEntry (argument) {
+  console.log("showing controlls")
+  $("#start").toggle()
+}
+
+function showStartControls (argument) {
+
+    $("#start").toggle()
+}
+
+function showGameElements (argument) {
+
+  $("#text_input").toggle()
+}
+
+</script>
+</head>
+<body>
+  <table id="wrapper">
+  <tr id="player_label" style="display:none;">
+    <td>
+      <h2>Welcome, <span id="player_name"></span></h2>
+    </td>
+  </tr>
+  <tr>
+    <td>
+        <form id="form" method="get" action="JavaScript:update();">
+          <input id="player" class="border" type="text" size="30" placeholder="Enter your name here"/>
+        </form>
+        <div id="rounds" style="display:none;">
+          <h3>Select the number of rounds for the game and hit "Start Game"
+          <input id="rounds_input" class="border" type="number" size="0" min="1" value="1"/>
+          </br>
+        </div>
+        <button id="start" style="display:none;" type="submit"/>Start Game</button>
+        <input id="text_input" class="border" style="display:none;" type="text" size="30" onwebkitspeechchange="transcribe(this.value)" x-webkit-speech/>
+    </td>
+  </tr>
+  </table>
+
+  <!-- Debbugging output -->
+  <div style="margin:10px; visibility:hidden;">
+    <textarea rows="20" cols="70" id="debugmessage">
+    </textarea>
+  </div>
+
+<script type="text/javascript">
+  // document.getElementById("input").focus();
+</script>
+</body>
+</html>

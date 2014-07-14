@@ -1,0 +1,192 @@
+<!--
+Copyright (C) 2014 Google Inc. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<!DOCTYPE html>
+<html>
+  <head>
+    <style type="text/css">
+	  body {
+	    overflow:hidden;
+	  }
+      div{
+	    height:720PX;
+	    width:1280PX;
+	    text-align:center;
+	    border:0px solid silver;
+	    display: table-cell;
+	    vertical-align:middle;
+	    color:#FFFFFF;
+	    background-color:#000000;
+	    font-weight:bold;
+	    font-family:Verdana, Geneva, sans-serif;
+	    font-size:40px;
+	}
+    </style>
+    <title>Cast Hello Text</title>
+  </head>
+  <body>
+  <DIV id="message">Talk to me</DIV>
+    <script type="text/javascript" src="//www.gstatic.com/cast/sdk/libs/receiver/2.0.0/cast_receiver.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+    <script type="text/javascript">
+      var senders = []
+      var players = []
+      var rounds
+      window.onload = function() {
+
+        cast.receiver.logger.setLevelValue(0);
+        window.castReceiverManager = cast.receiver.CastReceiverManager.getInstance();
+        console.log('Starting Receiver Manager');
+
+        // handler for the 'ready' event
+        castReceiverManager.onReady = function(event) {
+          console.log('Received Ready event: ' + JSON.stringify(event.data));
+          window.castReceiverManager.setApplicationState("Application status is ready...");
+        };
+
+        // handler for 'senderconnected' event
+        castReceiverManager.onSenderConnected = function(event) {
+          console.log('Received Sender Connected event: ' + event.data);
+          newSender = window.castReceiverManager.getSender(event.data);
+          addNewSender(newSender)
+        };
+
+        function addNewSender (newSender) {
+          if (senders.length <= 0) {
+            senders.push({id:newSender.id, disabled: true, message: '', player: ''});
+          } else {
+            var regex = ".*:"
+            var prefix = newSender.id.match(regex)
+            for (var i = 0; i <= senders.length - 1; i++) {
+              if (senders[i].id.match(prefix)) {
+                senders.splice(i, 1, {id:newSender.id, disabled: true, message: '', player: ''})
+              };
+            };
+          }
+
+          sendMessage(newSender.id, messageJson("status", "disabled"))
+          
+          var senderIndex = getSenderIndex(newSender.id)
+          if (senderIndex == 0) {
+            sendStartControls(newSender.id)
+          };
+        }
+
+        function getSenderIndex (senderID) {
+          for (var i = 0; i <= senders.length - 1; i++) {
+            if (senders[i].id === senderID) {
+              return i;
+            }
+          };
+        }
+
+        window.messageBus =
+          window.castReceiverManager.getCastMessageBus(
+              'urn:x-cast:com.google.cast.sample.helloworld');
+
+        function sendStartControls (senderID) {
+          window.messageBus.send(senderID, messageJson("set", "start"));
+        }
+
+        // create a CastMessageBus to handle messages for a custom namespace
+
+        // handler for the CastMessageBus message event
+        window.messageBus.onMessage = function(event) {
+          messageSender = getSenderIndex(event.senderId)
+          var message = JSON.parse(event.data)
+          console.log(message)
+          switch (message["type"]) {
+            case "player":
+              setPlayerName(messageSender, message["body"])
+              sendMessage(event.senderId, messageJson("set", "player"))
+              break;
+            case "rounds":
+              rounds = message["body"]
+              sendMessage(event.senderId, messageJson("set", "rounds"))
+            case "start":
+              if (message["body"] === 1) {
+
+              };
+              break;
+          }
+
+
+
+          if (senders[messageSender].disabled === true) {
+            console.log('Error: sender [' + event.senderId + '] is disabled. Text will not display.');
+
+          } else {
+            // display the message from the sender
+            displayText(event.data);
+            // inform all senders on the CastMessageBus of the incoming message event
+            // sender message listener will be invoked
+            window.messageBus.send(event.senderId, event.data);
+            sender.disabled = true
+            sendMessage(event.senderId, messageJson("status", "disabled"))
+          };
+        }
+
+        // initialize the CastReceiverManager with an application status message
+        window.castReceiverManager.start({statusText: "Application is starting"});
+        console.log('Receiver Manager started');
+      };
+
+      function sendMessage (senderID, message) {
+        window.messageBus.send(senderID, message)
+      }
+
+      function messageJson (contentType, contentBody) {
+        return JSON.stringify({type: contentType, body: contentBody})
+      }
+
+      function setPlayerName (senderIndex, messageBody) {
+        senders[senderIndex].player = messageBody;
+        players.push(messageBody);
+
+      }
+
+      // utility function to display the text message in the input field
+      function displayText(text) {
+        console.log(text);
+        document.getElementById("message").innerHTML=text;
+        window.castReceiverManager.setApplicationState(text);
+      };
+
+      function setPlayerNames () {
+        // body...
+      }
+
+      function startGame() {
+        randomizeSenderOrder
+
+      // handler for 'senderdisconnected' event
+      castReceiverManager.onSenderDisconnected = function(event) {
+        console.log('Received Sender Disconnected event: ' + event.data);
+        if (window.castReceiverManager.getSenders().length == 0) {
+        // window.close();
+      }
+      };
+
+      // handler for 'systemvolumechanged' event
+      castReceiverManager.onSystemVolumeChanged = function(event) {
+        console.log('Received System Volume Changed event: ' + event.data['level'] + ' ' +
+            event.data['muted']);
+      };
+
+      }
+    </script>
+  </body>
+<!-- </html> -->
