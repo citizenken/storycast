@@ -37,7 +37,7 @@ limitations under the License.
     <title>Cast Hello Text</title>
   </head>
   <body>
-  <DIV id="message">Hi Flip! -Ham</DIV>
+  <DIV id="message">Talk to me</DIV>
     <script type="text/javascript" src="//www.gstatic.com/cast/sdk/libs/receiver/2.0.0/cast_receiver.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
@@ -45,8 +45,6 @@ limitations under the License.
       var senders = []
       var players = []
       var rounds
-      var shuffledSenders = []
-
       window.onload = function() {
 
         cast.receiver.logger.setLevelValue(0);
@@ -66,24 +64,42 @@ limitations under the License.
           addNewSender(newSender)
         };
 
-        // handler for 'senderdisconnected' event
-        castReceiverManager.onSenderDisconnected = function(event) {
-          console.log('Received Sender Disconnected event: ' + event.data);
-          if (window.castReceiverManager.getSenders().length == 0) {
-          // window.close();
-        }
-        };
+        function addNewSender (newSender) {
+          if (senders.length <= 0) {
+            senders.push({id:newSender.id, disabled: true, message: '', player: ''});
+          } else {
+            var regex = ".*:"
+            var prefix = newSender.id.match(regex)
+            for (var i = 0; i <= senders.length - 1; i++) {
+              if (senders[i].id.match(prefix)) {
+                senders.splice(i, 1, {id:newSender.id, disabled: true, message: '', player: ''})
+              };
+            };
+          }
 
-        // handler for 'systemvolumechanged' event
-        castReceiverManager.onSystemVolumeChanged = function(event) {
-          console.log('Received System Volume Changed event: ' + event.data['level'] + ' ' +
-              event.data['muted']);
-        };
+          sendMessage(newSender.id, messageJson("status", "disabled"))
+          
+          var senderIndex = getSenderIndex(newSender.id)
+          if (senderIndex == 0) {
+            sendStartControls(newSender.id)
+          };
+        }
+
+        function getSenderIndex (senderID) {
+          for (var i = 0; i <= senders.length - 1; i++) {
+            if (senders[i].id === senderID) {
+              return i;
+            }
+          };
+        }
 
         window.messageBus =
           window.castReceiverManager.getCastMessageBus(
               'urn:x-cast:com.google.cast.sample.helloworld');
 
+        function sendStartControls (senderID) {
+          window.messageBus.send(senderID, messageJson("set", "start"));
+        }
 
         // create a CastMessageBus to handle messages for a custom namespace
 
@@ -93,14 +109,6 @@ limitations under the License.
           var message = JSON.parse(event.data)
           console.log(message)
           switch (message["type"]) {
-            case "init":
-
-        sendMessage(newSender.id, messageJson("status", "disabled"))
-
-        var senderIndex = getSenderIndex(newSender.id)
-        if (senderIndex == 0) {
-          sendStartControls(newSender.id)
-        };
             case "player":
               setPlayerName(messageSender, message["body"])
               sendMessage(event.senderId, messageJson("set", "player"))
@@ -110,10 +118,25 @@ limitations under the License.
               sendMessage(event.senderId, messageJson("set", "rounds"))
             case "start":
               if (message["body"] === 1) {
-                startGame()
+
               };
               break;
           }
+
+
+
+          if (senders[messageSender].disabled === true) {
+            console.log('Error: sender [' + event.senderId + '] is disabled. Text will not display.');
+
+          } else {
+            // display the message from the sender
+            displayText(event.data);
+            // inform all senders on the CastMessageBus of the incoming message event
+            // sender message listener will be invoked
+            window.messageBus.send(event.senderId, event.data);
+            sender.disabled = true
+            sendMessage(event.senderId, messageJson("status", "disabled"))
+          };
         }
 
         // initialize the CastReceiverManager with an application status message
@@ -121,9 +144,6 @@ limitations under the License.
         console.log('Receiver Manager started');
       };
 
-      function sendStartControls (senderID) {
-        window.messageBus.send(senderID, messageJson("set", "start"));
-      }
       function sendMessage (senderID, message) {
         window.messageBus.send(senderID, message)
       }
@@ -132,9 +152,9 @@ limitations under the License.
         return JSON.stringify({type: contentType, body: contentBody})
       }
 
-      function setPlayerName (senderIndex, playerName) {
-        senders[senderIndex].player = playerName;
-        players.push(playerName);
+      function setPlayerName (senderIndex, messageBody) {
+        senders[senderIndex].player = messageBody;
+        players.push(messageBody);
 
       }
 
@@ -145,61 +165,28 @@ limitations under the License.
         window.castReceiverManager.setApplicationState(text);
       };
 
+      function setPlayerNames () {
+        // body...
+      }
+
       function startGame() {
-        shuffleSenders()
+        randomizeSenderOrder
+
+      // handler for 'senderdisconnected' event
+      castReceiverManager.onSenderDisconnected = function(event) {
+        console.log('Received Sender Disconnected event: ' + event.data);
+        if (window.castReceiverManager.getSenders().length == 0) {
+        // window.close();
       }
+      };
 
-      function shuffleSenders () {
-        shuffledSenders = senders.slice(0)
-        shuffledSenders = shuffle(shuffledSenders)
+      // handler for 'systemvolumechanged' event
+      castReceiverManager.onSystemVolumeChanged = function(event) {
+        console.log('Received System Volume Changed event: ' + event.data['level'] + ' ' +
+            event.data['muted']);
+      };
 
       }
-
-      function shuffle(array) {
-        var currentIndex = array.length
-          , temporaryValue
-          , randomIndex
-          ;
-
-        // While there remain elements to shuffle...
-        while (0 !== currentIndex) {
-
-          // Pick a remaining element...
-          randomIndex = Math.floor(Math.random() * currentIndex);
-          currentIndex -= 1;
-
-          // And swap it with the current element.
-          temporaryValue = array[currentIndex];
-          array[currentIndex] = array[randomIndex];
-          array[randomIndex] = temporaryValue;
-        }
-
-        return array;
-      };
-
-      function addNewSender (newSender) {
-        if (senders.length <= 0) {
-          senders.push({id:newSender.id, disabled: true, message: '', player: ''});
-        } else {
-          var regex = ".*:"
-          var prefix = newSender.id.match(regex)
-          for (var i = 0; i <= senders.length - 1; i++) {
-            if (senders[i].id.match(prefix)) {
-              senders.splice(i, 1, {id:newSender.id, disabled: true, message: '', player: ''})
-            };
-          };
-        }
-      };
-
-      function getSenderIndex (senderID) {
-        for (var i = 0; i <= senders.length - 1; i++) {
-          if (senders[i].id === senderID) {
-            return i;
-          }
-        };
-      };
-
-
     </script>
   </body>
 <!-- </html> -->

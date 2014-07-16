@@ -131,9 +131,7 @@ function sessionUpdateListener(isAlive) {
  */
 function receiverMessage(namespace, message) {
   appendMessage("receiverMessage: "+namespace+", "+message);
-  console.log("hurp")
   if (message) {
-    console.log("foooooo")
     message = JSON.parse(message)
     switch (message["type"]) {
       case "set":
@@ -142,7 +140,7 @@ function receiverMessage(namespace, message) {
             hasStartControls = true;
             break;
           case "player":
-            console.log("blah")
+            console.log("blah");
             var name = $("#player").val()
             $("#player_name").text(name);
             $("#player_label").toggle();
@@ -170,7 +168,7 @@ function receiverMessage(namespace, message) {
             break;
           case "enabled":
             disabled = false
-            break;
+            break;  
         }
 
     }
@@ -208,7 +206,7 @@ function sendMessage(message) {
   else {
     chrome.cast.requestSession(function(e) {
         session = e;
-        session.sendMessage(namespace, "init", onSuccess.bind(this, "Message sent: " + message), onError);
+        session.sendMessage(namespace, message, onSuccess.bind(this, "Message sent: " + message), onError);
       }, onError);
   }
 }
@@ -230,20 +228,20 @@ function update() {
   var formElement = $("#form")
   switch (formElement.children().attr('id')) {
     case "player":
-      sendMessage(messageJson("init", 1))
       var player = $("#player")
       var message = messageJson("player", player.val());
       moveFormElement(formElement, player, $("#rounds"));
       break;
     case "rounds":
-      var message = messageJson("rounds", $("#rounds_input").val());
+      var rounds = $("#rounds_input")
+      var message = messageJson("rounds", rounds.val());
       moveFormElement(formElement, $("#rounds"), $("#start"));
       break;
     case "start":
       var start = $("#start")
       var message = messageJson("start", 1);
       moveFormElement(formElement, $("#start"), $("#text_input"));
-      break;
+      break;  
   }
 
   sendMessage(message);
