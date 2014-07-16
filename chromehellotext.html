@@ -140,10 +140,6 @@ function receiverMessage(namespace, message) {
             hasStartControls = true;
             break;
           case "player":
-            console.log("blah");
-            var name = $("#player").val()
-            $("#player_name").text(name);
-            $("#player_label").toggle();
             if (hasStartControls) {
               $("#rounds").toggle()
             } else {
@@ -230,7 +226,13 @@ function update() {
     case "player":
       var player = $("#player")
       var message = messageJson("player", player.val());
-      moveFormElement(formElement, player, $("#rounds"));
+      $("#player_name").text(player.val());
+      $("#player_label").toggle();
+      if (hasStartControls = 1) {
+        moveFormElement(formElement, player, $("#rounds"));
+      } else {
+        moveFormElement(formElement, player, $("#text_input"));
+      }
       break;
     case "rounds":
       var rounds = $("#rounds_input")

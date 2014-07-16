@@ -37,15 +37,22 @@ limitations under the License.
     <title>Cast Hello Text</title>
   </head>
   <body>
-  <DIV id="message">Talk to me</DIV>
+  <div id="player_container">
+    <table id="players">
+      <tr></tr>
+    </table>
+    <DIV id="message">Hi Flip! -Ham</DIV>
+  </div>
     <script type="text/javascript" src="//www.gstatic.com/cast/sdk/libs/receiver/2.0.0/cast_receiver.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
     <script type="text/javascript">
       var senders = []
       var players = []
+      var shuffledSenders = []
       var rounds
       window.onload = function() {
+        $("body").find("a").parent().parent().remove()
 
         cast.receiver.logger.setLevelValue(0);
         window.castReceiverManager = cast.receiver.CastReceiverManager.getInstance();
@@ -64,53 +71,22 @@ limitations under the License.
           addNewSender(newSender)
         };
 
-        function addNewSender (newSender) {
-          if (senders.length <= 0) {
-            senders.push({id:newSender.id, disabled: true, message: '', player: ''});
-          } else {
-            var regex = ".*:"
-            var prefix = newSender.id.match(regex)
-            for (var i = 0; i <= senders.length - 1; i++) {
-              if (senders[i].id.match(prefix)) {
-                senders.splice(i, 1, {id:newSender.id, disabled: true, message: '', player: ''})
-              };
-            };
-          }
-
-          sendMessage(newSender.id, messageJson("status", "disabled"))
-          
-          var senderIndex = getSenderIndex(newSender.id)
-          if (senderIndex == 0) {
-            sendStartControls(newSender.id)
-          };
-        }
-
-        function getSenderIndex (senderID) {
-          for (var i = 0; i <= senders.length - 1; i++) {
-            if (senders[i].id === senderID) {
-              return i;
-            }
-          };
-        }
-
         window.messageBus =
           window.castReceiverManager.getCastMessageBus(
               'urn:x-cast:com.google.cast.sample.helloworld');
 
-        function sendStartControls (senderID) {
-          window.messageBus.send(senderID, messageJson("set", "start"));
-        }
 
         // create a CastMessageBus to handle messages for a custom namespace
 
         // handler for the CastMessageBus message event
         window.messageBus.onMessage = function(event) {
-          messageSender = getSenderIndex(event.senderId)
+          senderIndex = getSenderIndex(event.senderId)
           var message = JSON.parse(event.data)
           console.log(message)
           switch (message["type"]) {
             case "player":
-              setPlayerName(messageSender, message["body"])
+              setPlayerName(senderIndex, message["body"])
+              displayPlayer(senderIndex)
               sendMessage(event.senderId, messageJson("set", "player"))
               break;
             case "rounds":
@@ -118,31 +94,88 @@ limitations under the License.
               sendMessage(event.senderId, messageJson("set", "rounds"))
             case "start":
               if (message["body"] === 1) {
-
+                startGame()
               };
               break;
           }
 
 
 
-          if (senders[messageSender].disabled === true) {
-            console.log('Error: sender [' + event.senderId + '] is disabled. Text will not display.');
+          // if (senders[senderIndex].disabled === true) {
+          //   console.log('Error: sender [' + event.senderId + '] is disabled. Text will not display.');
 
-          } else {
-            // display the message from the sender
-            displayText(event.data);
-            // inform all senders on the CastMessageBus of the incoming message event
-            // sender message listener will be invoked
-            window.messageBus.send(event.senderId, event.data);
-            sender.disabled = true
-            sendMessage(event.senderId, messageJson("status", "disabled"))
-          };
+          // } else {
+          //   // display the message from the sender
+          //   displayText(event.data);
+          //   // inform all senders on the CastMessageBus of the incoming message event
+          //   // sender message listener will be invoked
+          //   window.messageBus.send(event.senderId, event.data);
+          //   sender.disabled = true
+          //   sendMessage(event.senderId, messageJson("status", "disabled"))
+          // };
         }
 
         // initialize the CastReceiverManager with an application status message
         window.castReceiverManager.start({statusText: "Application is starting"});
         console.log('Receiver Manager started');
+   
+        // handler for 'senderdisconnected' event
+        castReceiverManager.onSenderDisconnected = function(event) {
+          console.log('Received Sender Disconnected event: ' + event.data);
+          if (window.castReceiverManager.getSenders().length == 0) {
+          // window.close();
+        }
+        };
+
+        // handler for 'systemvolumechanged' event
+        castReceiverManager.onSystemVolumeChanged = function(event) {
+          console.log('Received System Volume Changed event: ' + event.data['level'] + ' ' +
+              event.data['muted']);
+        };
       };
+
+      function addNewSender (newSender) {
+        // if (senders.length <= 0) {
+          senders.push({id:newSender.id, disabled: true, message: '', player: ''});
+          console.log(senders)
+        // } else {
+        //   var regex = ".*:"
+        //   var prefix = newSender.id.match(regex)
+        //   for (var i = 0; i <= senders.length - 1; i++) {
+        //     if (senders[i].id.match(prefix)) {
+        //       senders.splice(i, 1, {id:newSender.id, disabled: true, message: '', player: ''})
+        //     };
+        //   };
+        // }
+
+        sendMessage(newSender.id, messageJson("status", "disabled"))
+        
+        var senderIndex = getSenderIndex(newSender.id)
+        if (senderIndex == 0) {
+          sendMessage(newSender.id, messageJson("set", "start"))
+        };
+      }
+
+      function getSenderIndex (senderID) {
+        for (var i = 0; i <= senders.length - 1; i++) {
+          if (senders[i].id === senderID) {
+            return i;
+          }
+        };
+      }
+
+      function displayPlayer (senderIndex) {
+        console.log("blah")
+        var playerName = senders[senderIndex].player
+        var playerNumber = senderIndex + 1
+        var html = "<tr>" +
+                      "<td id=\"" + playerName + "\">" +
+                        "Player " + playerNumber + ": " + playerName +
+                    "</tr>"
+
+
+        $("#players > tbody:last").append(html)
+      }
 
       function sendMessage (senderID, message) {
         window.messageBus.send(senderID, message)
@@ -170,23 +203,33 @@ limitations under the License.
       }
 
       function startGame() {
-        randomizeSenderOrder
-
-      // handler for 'senderdisconnected' event
-      castReceiverManager.onSenderDisconnected = function(event) {
-        console.log('Received Sender Disconnected event: ' + event.data);
-        if (window.castReceiverManager.getSenders().length == 0) {
-        // window.close();
+        shuffledSenders = senders.slice(0)
+        shuffle(shuffledSenders)
       }
-      };
 
-      // handler for 'systemvolumechanged' event
-      castReceiverManager.onSystemVolumeChanged = function(event) {
-        console.log('Received System Volume Changed event: ' + event.data['level'] + ' ' +
-            event.data['muted']);
-      };
+      function shuffle(array) {
+        var currentIndex = array.length
+          , temporaryValue
+          , randomIndex
+          ;
 
-      }
+        // While there remain elements to shuffle...
+        while (0 !== currentIndex) {
+
+          // Pick a remaining element...
+          randomIndex = Math.floor(Math.random() * currentIndex);
+          currentIndex -= 1;
+
+          // And swap it with the current element.
+          temporaryValue = array[currentIndex];
+          array[currentIndex] = array[randomIndex];
+          array[randomIndex] = temporaryValue;
+        }
+
+        return array;
+      }      
+
+
     </script>
   </body>
 <!-- </html> -->
