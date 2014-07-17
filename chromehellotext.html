@@ -140,20 +140,9 @@ function receiverMessage(namespace, message) {
             hasStartControls = true;
             break;
           case "player":
-            if (hasStartControls) {
-              $("#rounds").toggle()
-            } else {
-              $("#text_input").toggle()
-            }
             break;
           case "rounds":
-            if (hasStartControls) {
-              $("#start").toggle()
-              $("#text_input").toggle()
-            } else {
-              $("#text_input").toggle()
-            }
-
+            break;
         }
         break;
       case "status":
@@ -164,8 +153,13 @@ function receiverMessage(namespace, message) {
             break;
           case "enabled":
             disabled = false
-            break;  
+            $("#text_input").prop('disabled', false);
+            break;
         }
+        break;
+      case "storyLine":
+        displayStoryLine(message["body"]);
+        break;
 
     }
   }
@@ -221,29 +215,35 @@ function appendMessage(message) {
  * utility function to handle text typed in by user in the input field
  */
 function update() {
-  var formElement = $("#form")
+  var formElement = $("#form");
+  var message
   switch (formElement.children().attr('id')) {
     case "player":
-      var player = $("#player")
-      var message = messageJson("player", player.val());
+      var player = $("#player");
+      message = messageJson("player", player.val());
       $("#player_name").text(player.val());
       $("#player_label").toggle();
-      if (hasStartControls = 1) {
+      if (hasStartControls === true) {
         moveFormElement(formElement, player, $("#rounds"));
       } else {
         moveFormElement(formElement, player, $("#text_input"));
       }
       break;
     case "rounds":
-      var rounds = $("#rounds_input")
-      var message = messageJson("rounds", rounds.val());
+      var rounds = $("#rounds_input");
+      message = messageJson("rounds", rounds.val());
       moveFormElement(formElement, $("#rounds"), $("#start"));
       break;
     case "start":
-      var start = $("#start")
-      var message = messageJson("start", 1);
+      var start = $("#start");
+      message = messageJson("start", 1);
       moveFormElement(formElement, $("#start"), $("#text_input"));
-      break;  
+      break;
+    case "text_input":
+      var input = $("#text_input");
+      message = messageJson("storyLine", input.val());
+      input.prop('disabled', true);
+      break;
   }
 
   sendMessage(message);
@@ -251,8 +251,9 @@ function update() {
 
 function moveFormElement (formElement, oldElement, newElement) {
   formElement.before(oldElement);
-  oldElement.toggle()
+  oldElement.toggle();
   formElement.append(newElement);
+  newElement.toggle()
 }
 
 /**
@@ -277,8 +278,11 @@ function showStartControls (argument) {
     $("#start").toggle()
 }
 
-function showGameElements (argument) {
+function displayStoryLine (storyLine) {
+  $("#storyLine").text(storyLine)
+}
 
+function showGameElements (argument) {
   $("#text_input").toggle()
 }
 
@@ -286,25 +290,29 @@ function showGameElements (argument) {
 </head>
 <body>
   <table id="wrapper">
-  <tr id="player_label" style="display:none;">
-    <td>
-      <h2>Welcome, <span id="player_name"></span></h2>
-    </td>
-  </tr>
-  <tr>
-    <td>
-        <form id="form" method="get" action="JavaScript:update();">
-          <input id="player" class="border" type="text" size="30" placeholder="Enter your name here"/>
-        </form>
-        <div id="rounds" style="display:none;">
-          <h3>Select the number of rounds for the game and hit "Start Game"
-          <input id="rounds_input" class="border" type="number" size="0" min="1" value="1"/>
-          </br>
-        </div>
-        <button id="start" style="display:none;" type="submit"/>Start Game</button>
-        <input id="text_input" class="border" style="display:none;" type="text" size="30" onwebkitspeechchange="transcribe(this.value)" x-webkit-speech/>
-    </td>
-  </tr>
+    <tr>
+      <td>
+        <h2>Welcome to Storycast!</h2>
+        <h2 id="player_label" style="display:none;">Hi <span id="player_name"></span></h2>
+      </td>
+    </tr>
+    <tr>
+      <td>
+          <form id="form" method="get" action="JavaScript:update();">
+            <input id="player" class="border" type="text" size="30" placeholder="Enter your name here"/>
+          </form>
+          <div id="rounds" style="display:none;">
+            <h3>Select the number of rounds for the game and hit "Start Game"</h3>
+            <input id="rounds_input" class="border" type="number" size="0" min="1" value="1"/>
+            <br>
+          </div>
+          <button id="start" style="display:none;" type="submit"/>Start Game</button>
+          <div>
+            <p id="storyLine" style="display:none;"></p>
+            <input id="text_input" class="border" style="display:none;" type="text" size="30" onwebkitspeechchange="transcribe(this.value)" x-webkit-speech/>
+          </div>
+      </td>
+    </tr>
   </table>
 
   <!-- Debbugging output -->

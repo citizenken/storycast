@@ -38,10 +38,10 @@ limitations under the License.
   </head>
   <body>
   <div id="player_container">
-    <table id="players">
+    <DIV id="message"><table id="players">
       <tr></tr>
     </table>
-    <DIV id="message">Hi Flip! -Ham</DIV>
+    Hi Flip! -Ham</DIV>
   </div>
     <script type="text/javascript" src="//www.gstatic.com/cast/sdk/libs/receiver/2.0.0/cast_receiver.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
@@ -51,6 +51,9 @@ limitations under the License.
       var players = []
       var shuffledSenders = []
       var rounds
+      var storyLines = []
+      var currentSender = 0
+      var gameStart = 0
       window.onload = function() {
         $("body").find("a").parent().parent().remove()
 
@@ -82,7 +85,6 @@ limitations under the License.
         window.messageBus.onMessage = function(event) {
           senderIndex = getSenderIndex(event.senderId)
           var message = JSON.parse(event.data)
-          console.log(message)
           switch (message["type"]) {
             case "player":
               setPlayerName(senderIndex, message["body"])
@@ -94,9 +96,16 @@ limitations under the License.
               sendMessage(event.senderId, messageJson("set", "rounds"))
             case "start":
               if (message["body"] === 1) {
+                gameStart = 1
+                storyLines = []
                 startGame()
+                enableNextPlayer()
               };
               break;
+            case "storyLine":
+              storyLines.push(message["body"])
+              currentSender++
+              enableNextPlayer()
           }
 
 
@@ -135,25 +144,35 @@ limitations under the License.
       };
 
       function addNewSender (newSender) {
-        // if (senders.length <= 0) {
-          senders.push({id:newSender.id, disabled: true, message: '', player: ''});
-          console.log(senders)
-        // } else {
-        //   var regex = ".*:"
-        //   var prefix = newSender.id.match(regex)
-        //   for (var i = 0; i <= senders.length - 1; i++) {
-        //     if (senders[i].id.match(prefix)) {
-        //       senders.splice(i, 1, {id:newSender.id, disabled: true, message: '', player: ''})
-        //     };
-        //   };
-        // }
+        var sender = {id:newSender.id, disabled: true, storyLine: '', player: '', start: null}
+        if (senders.length <= 0) {
+          senders.push(newSender);
+        } else {
+          var regex = ".*:"
+          var prefix = sender.id.match(regex);
+          var replaced = removeDuplicateSenders(prefix[0], sender);
+          if (replaced === 0) {
+            senders.push(sender)
+          }
+        }
 
-        sendMessage(newSender.id, messageJson("status", "disabled"))
-        
-        var senderIndex = getSenderIndex(newSender.id)
-        if (senderIndex == 0) {
-          sendMessage(newSender.id, messageJson("set", "start"))
+        disablePlayer(sender.id);
+        grantStartControls(sender.id);
+      }
+
+      function disablePlayer (senderID) {
+        sendMessage(senderID, messageJson("status", "disabled"))
+      }
+
+      function removeDuplicateSenders (prefix, sender) {
+        var replaced = 0
+        for (var i = 0; i <= senders.length - 1; i++) {
+          if (senders[i].id.match(prefix) !== null) {
+            senders.splice(i, 1, sender)
+            replaced = 1
+          }
         };
+        return replaced
       }
 
       function getSenderIndex (senderID) {
@@ -164,8 +183,43 @@ limitations under the License.
         };
       }
 
+      function enableNextPlayer () {
+        if (rounds > 0 && currentSender <= shuffledSenders.length -1) {
+          var storyLine = ""
+          if (currentSender != 0) {
+            storyLine = shuffledSenders[currentSender -1].storyLine
+          }
+
+          sendMessage(shuffledSenders[currentSender].id, messageJson("status", "enabled"))
+          sendMessage(shuffledSenders[currentSender].id, messageJson("storyline", storyLine))
+        } else if (rounds === 0) {
+          gameStart = 0
+          endGame();
+        } else {
+          
+        }
+
+        };
+
+
+          } else {
+            rounds--
+            if (rounds === 0) {
+            }
+          }
+        }
+      }
+
+      function endGame () {
+        displayStoryLine()
+      }
+
+      function displayStoryLine() {
+        var story = storyLines.join("\n");
+        displayText(story)
+      }
+
       function displayPlayer (senderIndex) {
-        console.log("blah")
         var playerName = senders[senderIndex].player
         var playerNumber = senderIndex + 1
         var html = "<tr>" +
@@ -178,6 +232,7 @@ limitations under the License.
       }
 
       function sendMessage (senderID, message) {
+        console.log("Sending " + message + " to " + senderID)
         window.messageBus.send(senderID, message)
       }
 
@@ -193,7 +248,6 @@ limitations under the License.
 
       // utility function to display the text message in the input field
       function displayText(text) {
-        console.log(text);
         document.getElementById("message").innerHTML=text;
         window.castReceiverManager.setApplicationState(text);
       };
@@ -205,6 +259,16 @@ limitations under the License.
       function startGame() {
         shuffledSenders = senders.slice(0)
         shuffle(shuffledSenders)
+      }
+
+      function grantStartControls (senderID) {
+        if (getSenderIndex(senderID) === 0) {
+          senders[0].start = true
+          for (var i = 1; i <= senders.length - 1; i++) {
+            senders[i].start = false
+          };
+          sendMessage(senderID, messageJson("set", "start"))
+        }
       }
 
       function shuffle(array) {
