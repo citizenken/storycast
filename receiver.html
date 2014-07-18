@@ -38,10 +38,10 @@ limitations under the License.
   </head>
   <body>
   <div id="player_container">
-    <DIV id="message"><table id="players">
+      <table id="players">
       <tr></tr>
     </table>
-    Hi Flip! -Ham</DIV>
+    <DIV id="message">Hi Flip! -Ham</DIV>
   </div>
     <script type="text/javascript" src="//www.gstatic.com/cast/sdk/libs/receiver/2.0.0/cast_receiver.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
@@ -98,7 +98,7 @@ limitations under the License.
               if (message["body"] === 1) {
                 gameStart = 1
                 storyLines = []
-                $("#message").text(null)
+                $("#message").text('');
                 startGame()
                 enableNextPlayer()
               };
@@ -233,7 +233,7 @@ limitations under the License.
 
       // utility function to display the text message in the input field
       function displayText(text) {
-        $("#message").text(text);
+        $("#message").html(text);
         window.castReceiverManager.setApplicationState(text);
       };
 
@@ -248,8 +248,10 @@ limitations under the License.
           for (var i = 1; i <= senders.length - 1; i++) {
             senders[i].start = false
           };
-          $(".players").remove()
-          sendMessage(senderID, messageJson("set", "start"))
+          if ($(".player").length) {
+            $(".player").remove();
+          }
+          sendMessage(senderID, messageJson("set", "start"));
         }
       }
 
