@@ -98,30 +98,22 @@ limitations under the License.
               if (message["body"] === 1) {
                 gameStart = 1
                 storyLines = []
+                $("#message").text(null)
                 startGame()
                 enableNextPlayer()
               };
               break;
             case "storyLine":
-              storyLines.push(message["body"])
-              currentSender++
-              enableNextPlayer()
+              storyLines.push(message["body"]);
+              shuffledSenders[currentSender].storyLine = message["body"]
+              if (currentSender < shuffledSenders.length - 1) {
+                currentSender++;
+              } else if (currentSender == shuffledSenders.length - 1) {
+                rounds--
+                currentSender = 0;
+              }
+              enableNextPlayer();
           }
-
-
-
-          // if (senders[senderIndex].disabled === true) {
-          //   console.log('Error: sender [' + event.senderId + '] is disabled. Text will not display.');
-
-          // } else {
-          //   // display the message from the sender
-          //   displayText(event.data);
-          //   // inform all senders on the CastMessageBus of the incoming message event
-          //   // sender message listener will be invoked
-          //   window.messageBus.send(event.senderId, event.data);
-          //   sender.disabled = true
-          //   sendMessage(event.senderId, messageJson("status", "disabled"))
-          // };
         }
 
         // initialize the CastReceiverManager with an application status message
@@ -184,10 +176,14 @@ limitations under the License.
       }
 
       function enableNextPlayer () {
-        if (rounds > 0 && currentSender <= shuffledSenders.length -1) {
-          var storyLine = ""
-          if (currentSender != 0) {
-            storyLine = shuffledSenders[currentSender -1].storyLine
+        if (rounds > 0) {
+          var storyLine = "";
+          if (storyLines.length != 0) {
+            if (currentSender == 0) {
+              storyLine = shuffledSenders[shuffledSenders.length - 1].storyLine
+            } else {
+              storyLine = shuffledSenders[currentSender - 1].storyLine
+            }
           }
 
           sendMessage(shuffledSenders[currentSender].id, messageJson("status", "enabled"))
@@ -195,18 +191,6 @@ limitations under the License.
         } else if (rounds === 0) {
           gameStart = 0
           endGame();
-        } else {
-          
-        }
-
-        };
-
-
-          } else {
-            rounds--
-            if (rounds === 0) {
-            }
-          }
         }
       }
 
@@ -215,14 +199,15 @@ limitations under the License.
       }
 
       function displayStoryLine() {
-        var story = storyLines.join("\n");
+        var story = storyLines.join("<br>");
+        var saveStory = storyLines.join("\n");
         displayText(story)
       }
 
       function displayPlayer (senderIndex) {
         var playerName = senders[senderIndex].player
         var playerNumber = senderIndex + 1
-        var html = "<tr>" +
+        var html = "<tr class='player'>" +
                       "<td id=\"" + playerName + "\">" +
                         "Player " + playerNumber + ": " + playerName +
                     "</tr>"
@@ -248,13 +233,9 @@ limitations under the License.
 
       // utility function to display the text message in the input field
       function displayText(text) {
-        document.getElementById("message").innerHTML=text;
+        $("#message").text(text);
         window.castReceiverManager.setApplicationState(text);
       };
-
-      function setPlayerNames () {
-        // body...
-      }
 
       function startGame() {
         shuffledSenders = senders.slice(0)
@@ -267,6 +248,7 @@ limitations under the License.
           for (var i = 1; i <= senders.length - 1; i++) {
             senders[i].start = false
           };
+          $(".players").remove()
           sendMessage(senderID, messageJson("set", "start"))
         }
       }

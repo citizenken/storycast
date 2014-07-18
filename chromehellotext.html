@@ -154,10 +154,11 @@ function receiverMessage(namespace, message) {
           case "enabled":
             disabled = false
             $("#text_input").prop('disabled', false);
+            $("#text_input").focus()
             break;
         }
         break;
-      case "storyLine":
+      case "storyline":
         displayStoryLine(message["body"]);
         break;
 
@@ -225,6 +226,7 @@ function update() {
       $("#player_label").toggle();
       if (hasStartControls === true) {
         moveFormElement(formElement, player, $("#rounds"));
+        $("#rounds").focus();
       } else {
         moveFormElement(formElement, player, $("#text_input"));
       }
@@ -233,6 +235,7 @@ function update() {
       var rounds = $("#rounds_input");
       message = messageJson("rounds", rounds.val());
       moveFormElement(formElement, $("#rounds"), $("#start"));
+      $("#start").focus();
       break;
     case "start":
       var start = $("#start");
@@ -242,7 +245,10 @@ function update() {
     case "text_input":
       var input = $("#text_input");
       message = messageJson("storyLine", input.val());
+      $("#storyline").text("").hide()
       input.prop('disabled', true);
+      input.val("")
+      $("#sent").slideToggle().delay(2000).slideToggle()
       break;
   }
 
@@ -274,12 +280,12 @@ function showPlayerEntry (argument) {
 }
 
 function showStartControls (argument) {
-
-    $("#start").toggle()
+  $("#start").toggle()
 }
 
 function displayStoryLine (storyLine) {
-  $("#storyLine").text(storyLine)
+  $("#storyline").text(storyLine);
+  $("#storyline").show();
 }
 
 function showGameElements (argument) {
@@ -298,6 +304,10 @@ function showGameElements (argument) {
     </tr>
     <tr>
       <td>
+          <h3 id="storyline" style="display:none;"></h3>
+          <div style="height:25px;text-align:center;">
+            <span id="sent"  style="font-weight:bold;color:green;font-size:1.17em;display:none;">StoryLine Sent!</span>
+          </div>
           <form id="form" method="get" action="JavaScript:update();">
             <input id="player" class="border" type="text" size="30" placeholder="Enter your name here"/>
           </form>
@@ -308,7 +318,6 @@ function showGameElements (argument) {
           </div>
           <button id="start" style="display:none;" type="submit"/>Start Game</button>
           <div>
-            <p id="storyLine" style="display:none;"></p>
             <input id="text_input" class="border" style="display:none;" type="text" size="30" onwebkitspeechchange="transcribe(this.value)" x-webkit-speech/>
           </div>
       </td>
