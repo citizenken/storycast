@@ -29,7 +29,7 @@ html, body, #wrapper {
    vertical-align: middle;
    text-align: center;
 }
-input {
+.text_input {
   font-family: "Arial", Arial, sans-serif;
   font-size: 40px;
   font-weight: bold;
@@ -54,6 +54,8 @@ var session = null;
 var hasStartControls = false
 var disabled = false
 var playerName
+var startingTimer
+var timer
 
 /**
  * Call initialization for Cast
@@ -131,6 +133,7 @@ function sessionUpdateListener(isAlive) {
  */
 function receiverMessage(namespace, message) {
   appendMessage("receiverMessage: "+namespace+", "+message);
+  var textInput = $("#text_input")
   if (message) {
     message = JSON.parse(message)
     switch (message["type"]) {
@@ -144,17 +147,46 @@ function receiverMessage(namespace, message) {
           case "rounds":
             break;
         }
+        if (message["body"].timer !== undefined) {
+            startingTimer = message["body"].timer
+            timer = startingTimer;
+        }
         break;
       case "status":
         switch (message["body"]) {
           case "disabled":
             disabled = true
-            $("#text_input").prop('disabled', true);
+            textInput.prop('disabled', false);
             break;
           case "enabled":
-            disabled = false
-            $("#text_input").prop('disabled', false);
-            $("#text_input").focus()
+            disabled = false;
+            textInput.prop('disabled', false);
+            textInput.focus();
+            console.log(timer);
+            if (timer != undefined) {
+              var timerEle = $("#timer")
+              timerEle.text('');
+              timerEle.text(timer);
+              timerEle.show();
+              $("#timer_label").show();
+              var time = setInterval(function(){
+                if (timer > 0){
+                  timer--;
+                  timerEle.text(timer);
+                } else {
+                  clearTimer();
+                  update("text_input");
+                  timer = startingTimer;
+                  clearInterval(time);
+                }
+              },1000);
+            }
+            break;
+          case "ready":
+            $("#wait").hide();
+            break;
+          case "complete":
+            window.alert("Your story is finished!");
             break;
         }
         break;
@@ -215,51 +247,58 @@ function appendMessage(message) {
 /**
  * utility function to handle text typed in by user in the input field
  */
-function update() {
-  var formElement = $("#form");
+function update(target) {
   var message
-  switch (formElement.children().attr('id')) {
+  switch (target) {
     case "player":
       var player = $("#player");
       message = messageJson("player", player.val());
       $("#player_name").text(player.val());
       $("#player_label").toggle();
       if (hasStartControls === true) {
-        moveFormElement(formElement, player, $("#rounds"));
+        showNextElement(player, $("#game_settings"));
         $("#rounds").focus();
       } else {
-        moveFormElement(formElement, player, $("#text_input"));
+        $("#wait").show()
+        showNextElement(player, $("#text_input"));
       }
-      break;
-    case "rounds":
-      var rounds = $("#rounds_input");
-      message = messageJson("rounds", rounds.val());
-      moveFormElement(formElement, $("#rounds"), $("#start"));
-      $("#start").focus();
       break;
     case "start":
       var start = $("#start");
-      message = messageJson("start", 1);
-      moveFormElement(formElement, $("#start"), $("#text_input"));
+      var settings = {}
+      settings.seed = $("#seed_input").is(":checked");
+      settings.rounds = $("#rounds_input").val();
+      settings.timer = $("#timer_input").is(":checked");
+      var seconds = $("#timer_seconds_input").val();
+      settings.seconds = ((seconds != 0) ? seconds : null);
+      message = messageJson("start", settings);
+      showNextElement($("#game_settings"), $("#text_input"));
       break;
     case "text_input":
+      console.log("snore");
       var input = $("#text_input");
       message = messageJson("storyLine", input.val());
-      $("#storyline").text("").hide()
-      input.prop('disabled', true);
-      input.val("")
-      $("#sent").slideToggle().delay(1000).slideToggle()
+      $("#storyline").text("").hide();
+      input.prop("disabled", true);
+      input.val("");
+      clearTimer();
+      $("#sent").slideToggle().delay(1000).slideToggle();
       break;
   }
 
   sendMessage(message);
 }
 
-function moveFormElement (formElement, oldElement, newElement) {
-  formElement.before(oldElement);
+function showNextElement (oldElement, newElement) {
   oldElement.toggle();
-  formElement.append(newElement);
-  newElement.toggle()
+  newElement.toggle();
+}
+
+function clearTimer () {
+  var timeEle = $("#timer");
+  timeEle.text('');
+  timeEle.hide();
+  $("#timer_label").hide();
 }
 
 /**
@@ -271,16 +310,16 @@ function transcribe(words) {
 }
 
 function messageJson (contentType, contentBody) {
-  return JSON.stringify({type: contentType, body: contentBody})
+  return JSON.stringify({type: contentType, body: contentBody});
 }
 
 function showPlayerEntry (argument) {
   console.log("showing controlls")
-  $("#start").toggle()
+  $("#start").toggle();
 }
 
 function showStartControls (argument) {
-  $("#start").toggle()
+  $("#start").toggle();
 }
 
 function displayStoryLine (storyLine) {
@@ -298,28 +337,34 @@ function showGameElements (argument) {
   <table id="wrapper">
     <tr>
       <td>
-        <h2>Welcome to Storycast!</h2>
+        <h2>Welcome to StoryCast!</h2>
         <h2 id="player_label" style="display:none;">Hi <span id="player_name"></span></h2>
       </td>
     </tr>
     <tr>
       <td>
-          <h3 id="storyline" style="display:none;"></h3>
-          <div style="height:25px;text-align:center;">
-            <span id="sent"  style="font-weight:bold;color:green;font-size:1.17em;display:none;">StoryLine Sent!</span>
+        <input id="player" class="submit text_input border" type="text" size="30" placeholder="Enter your name here"/>
+        <div id="game_settings" style="display:none;">
+          <h3>Select your game options and hit "Start Game"!</h3>
+          <label for="seed_input" title="A StorySeed is a randomly generated word used to help spur you creativity">Provide a StorySeed?</label>
+          <input id="seed_input" class="border" type="checkbox" value="0"></br>
+          <label for="rounds_input" title="One round consists of each player entering a sentence">How many rounds?</label>
+          <input id="rounds_input" class="border" type="number" size="0" min="1" value="1"/></br>
+          <label for="timer_input">Turn time limit?</label>
+          <input id="timer_input" class="border" type="checkbox" value="0"></br>
+          <div id="timer_div" style="height:20px;">
+            <label id="time_seconds_label" style="display:none;" for="timer_seconds_input">How many seconds per turn?</label>
+            <input id="timer_seconds_input" style="display:none;" class="border" type="number" size="0" min="5" max="60" step="5" value="0"></br>
           </div>
-          <form id="form" method="get" action="JavaScript:update();">
-            <input id="player" class="border" type="text" size="30" placeholder="Enter your name here"/>
-          </form>
-          <div id="rounds" style="display:none;">
-            <h3>Select the number of rounds for the game and hit "Start Game"</h3>
-            <input id="rounds_input" class="border" type="number" size="0" min="1" value="1"/>
-            <br>
-          </div>
-          <button id="start" style="display:none;" type="submit"/>Start Game</button>
-          <div>
-            <input id="text_input" class="border" style="display:none;" type="text" size="30" onwebkitspeechchange="transcribe(this.value)" x-webkit-speech/>
-          </div>
+          <button id="start"/>Start Game</button>
+        </div>
+        <h2 id="wait" style="display:none;">Please wait for Player 1 to configure your game</h2>
+        <h3 id="storyline" style="display:none;"></h3>
+        <h3 id="timer_label" style="display:none;">You have <span id="timer"></span> left!</h3>
+        <div style="height:25px;text-align:center;">
+          <span id="sent"  style="font-weight:bold;color:green;font-size:1.17em;display:none;">StoryLine Sent!</span>
+        </div>
+        <input id="text_input" class="submit text_input border" style="display:none;" type="text" size="30" onwebkitspeechchange="transcribe(this.value)" x-webkit-  speech/>
       </td>
     </tr>
   </table>
@@ -332,6 +377,33 @@ function showGameElements (argument) {
 
 <script type="text/javascript">
   // document.getElementById("input").focus();
+  window.onload = function() {
+
+    $("#player").focus();
+
+    $(".submit").on("keypress", function(e) {
+      var keyCode = e.which;
+      var target = e.currentTarget.id;
+      if (keyCode == '13'){
+        update(target);
+      }
+    });
+
+    $("#start").on("click", function() {
+      update("start")
+    });
+
+    $("#timer_input").on("click", function() {
+      var seconds = $("#timer_seconds_input").attr("value");
+      if (seconds == 10){
+        $("#timer_seconds_input").attr("value", 0);
+      } else {
+        $("#timer_seconds_input").attr("value", 10);
+      }
+      $("#time_seconds_label").slideToggle();
+      $("#timer_seconds_input").slideToggle();
+    });
+  };
 </script>
 </body>
 </html>

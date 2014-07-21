@@ -41,19 +41,27 @@ limitations under the License.
       <table id="players">
       <tr></tr>
     </table>
-    <DIV id="message">Hi Flip! -Ham</DIV>
+    <DIV id="storySeedLabel" style="display:none;">Use this StorySeed to get the story going!</DIV>
+    <DIV id="storySeed"></DIV>
+    <DIV id="message">Welcome to StoryCast!</DIV>
   </div>
     <script type="text/javascript" src="//www.gstatic.com/cast/sdk/libs/receiver/2.0.0/cast_receiver.js"></script>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+    <script type="text/javascript" src="seeds.js"></script>
     <script type="text/javascript">
       var senders = []
       var players = []
       var shuffledSenders = []
-      var rounds
       var storyLines = []
       var currentSender = 0
       var gameStart = 0
+      
+      // game settings
+      var rounds
+      var seed
+      var timer
+
       window.onload = function() {
         $("body").find("a").parent().parent().remove()
 
@@ -71,7 +79,7 @@ limitations under the License.
         castReceiverManager.onSenderConnected = function(event) {
           console.log('Received Sender Connected event: ' + event.data);
           newSender = window.castReceiverManager.getSender(event.data);
-          addNewSender(newSender)
+          addNewSender(newSender);
         };
 
         window.messageBus =
@@ -91,17 +99,16 @@ limitations under the License.
               displayPlayer(senderIndex)
               sendMessage(event.senderId, messageJson("set", "player"))
               break;
-            case "rounds":
-              rounds = message["body"]
-              sendMessage(event.senderId, messageJson("set", "rounds"))
             case "start":
-              if (message["body"] === 1) {
-                gameStart = 1
-                storyLines = []
+                for (var i = 0; i <= senders.length - 1; i++) {
+                  sendMessage(senders[i].id, messageJson("status", "ready"));
+                };
+                parseSettings(message["body"]);
+                gameStart = 1;
+                storyLines = [];
                 $("#message").text('');
-                startGame()
-                enableNextPlayer()
-              };
+                startGame();
+                enableNextPlayer();
               break;
             case "storyLine":
               storyLines.push(message["body"]);
@@ -156,6 +163,41 @@ limitations under the License.
         sendMessage(senderID, messageJson("status", "disabled"))
       }
 
+      function parseSettings (settings) {
+        seed = settings.seed;
+        rounds = settings.rounds;
+        timer = settings.timer;
+        seconds = settings.seconds;
+
+        if (seed) {
+          displayStorySeed();
+        } else {
+          var storySeed = $("#storySeed");
+          storySeed.text('');
+          storySeed.hide();
+          $("#storySeedLabel").hide();
+        }
+
+        if (timer) {
+          var timeInfo = {timer:seconds};
+          console.log(senders);
+            for (var i = 0; i <= senders.length - 1; i++) {
+              sendMessage(senders[i].id, messageJson("set", timeInfo));
+            };
+        }
+
+      }
+
+      function displayStorySeed () {
+        var storySeed = $("#storySeed")
+        storySeed.text('');
+        var seed = returnRandomSeed();
+        storySeed.text(seed);
+        if (!$("#storySeedLabel").is(":visible")) {
+          $("#storySeedLabel").show();
+        }
+      }
+
       function removeDuplicateSenders (prefix, sender) {
         var replaced = 0
         for (var i = 0; i <= senders.length - 1; i++) {
@@ -195,6 +237,7 @@ limitations under the License.
       }
 
       function endGame () {
+        sendMessage("status", "complete");
         displayStoryLine()
       }
 
